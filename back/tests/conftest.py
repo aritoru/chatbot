@@ -6,8 +6,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
+from models.interview import (
+    GameSystem,
+    InterviewFields,
+    Session,
+    TranscriptMessage,
+    UrgencyLevel,
+)
 from routers import chat as chat_router
 from routers import intakes as intakes_router
+from services import storage
 
 
 @pytest.fixture
@@ -79,3 +87,28 @@ def stub_get_intake(monkeypatch):
 
     monkeypatch.setattr(intakes_router, "get_intake", _stub)
     return state
+
+
+@pytest.fixture
+def isolated_intakes_dir(tmp_path, monkeypatch):
+    """Redirect storage.INTAKES_DIR to a fresh tmp_path subdir. Returns the path."""
+    intakes_dir = tmp_path / "intakes"
+    monkeypatch.setattr(storage, "INTAKES_DIR", intakes_dir)
+    return intakes_dir
+
+
+@pytest.fixture
+def completed_session():
+    """A Session with all four fields filled and a small transcript."""
+    session = Session("test-session")
+    session.fields = InterviewFields(
+        game_system=GameSystem.DND_5,
+        problem_category="rules clarification",
+        problem_description="How does flanking work in 5e?",
+        urgency_level=UrgencyLevel.MEDIUM,
+    )
+    session.transcript = [
+        TranscriptMessage(role="agent", content="Hello!"),
+        TranscriptMessage(role="customer", content="Hi, I have a question."),
+    ]
+    return session
