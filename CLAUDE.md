@@ -61,7 +61,7 @@ CONTEXT.md         # Domain language glossary
 
 ## Agent Architecture (`back/services/agent.py`)
 
-The system prompt is **regenerated on every request** with the current Interview State injected, so Claude always knows which fields are collected. The constrained fields `game_system` and `urgency_level` are **inferred** from conversational signals (direct names, oblique references, time/impact cues) rather than collected via menu — the normalized enum value is only surfaced explicitly to the Customer at the Confirmation Step. Claude uses two tools:
+The system prompt is **regenerated on every request** with the current Interview State injected, so Claude always knows which fields are collected. The constrained fields `game_system` and `urgency_level` are **inferred** from conversational signals (direct names, oblique references, time/impact cues) rather than collected via menu. **All four internal fields stay off the Customer-facing surface**: the Agent never names the fields or their enum values; the Confirmation Step paraphrases the Customer's *problem* in natural language and asks for a yes/no, and the post-submission UI shows only the IRN and problem description. The full intake JSON is still available to internal callers via `GET /intakes/{irn}`. Claude uses two tools:
 - `extract_field(field_name, field_value)` — called whenever Claude extracts a valid field value
 - `confirm_intake()` — called when the customer confirms the summary
 

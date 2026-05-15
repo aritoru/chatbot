@@ -71,10 +71,7 @@ export default function Chat() {
           </p>
           <p>Keep this number to follow up on your issue.</p>
           <div style={styles.intakeSummary}>
-            <div><strong>Game System:</strong> {intake.game_system}</div>
-            <div><strong>Category:</strong> {intake.problem_category}</div>
-            <div><strong>Urgency:</strong> {intake.urgency_level}</div>
-            <div><strong>Description:</strong> {intake.problem_description}</div>
+            <div>{intake.problem_description}</div>
           </div>
           <button style={styles.restartButton} onClick={() => { setIntake(null); setMessages([]); startSession(); }}>
             Start a new inquiry
