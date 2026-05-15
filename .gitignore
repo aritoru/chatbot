@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage/
+
+# Env files
+.env
+.env.local
+.env.*.local
+back/.env
+front/.env
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Data (intake JSON files)
+back/data/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Claude Code / plugin local state
+.claude/settings.local.json
+.remember/
