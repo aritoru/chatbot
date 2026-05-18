@@ -11,7 +11,7 @@ export async function createSession(): Promise<{ session_id: string; message: st
 export async function sendMessage(
   sessionId: string,
   message: string,
-): Promise<{ message: string; status: InterviewStatus; intake: Intake | null }> {
+): Promise<{ message: string; status: InterviewStatus; intake: Intake | null; language?: string }> {
   const res = await fetch(`${BASE}/sessions/${sessionId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -103,3 +103,18 @@ def test_delete_unknown_session_is_idempotent(client):
     response = client.delete("/sessions/never-existed")
     assert response.status_code == 200
     assert response.json() == {"message": "Session closed"}
+
+
+def test_message_response_includes_language(client, stub_opening, stub_process):
+    stub_process["return_value"] = ("¡Hola!", False)
+    session_id = client.post("/sessions").json()["session_id"]
+
+    response = client.post(
+        f"/sessions/{session_id}/messages",
+        json={"message": "Hola"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "language" in body
+    assert body["language"] == "en"  # default — no extract_field call in stub

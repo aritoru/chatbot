@@ -1,5 +1,6 @@
 import re
 
+from models.interview import FrustrationSignal, Language
 from services import storage
 
 IRN_RE = re.compile(r"^IRN-[0-9A-F]{8}$")
@@ -80,6 +81,29 @@ def _write_fake_intake(dir_path, irn):
         ' "problem_category": "x",'
         ' "urgency_level": "Low"}'
     )
+
+
+def test_save_intake_includes_frustration_signal(isolated_intakes_dir, completed_session):
+    completed_session.frustration_signal = FrustrationSignal.HIGH
+    intake = storage.save_intake(completed_session)
+    assert intake["frustration_signal"] == "High"
+
+
+def test_save_intake_frustration_signal_defaults_to_none(isolated_intakes_dir, completed_session):
+    # completed_session fixture does not set frustration_signal — defaults to NONE
+    intake = storage.save_intake(completed_session)
+    assert intake["frustration_signal"] == "None"
+
+
+def test_save_intake_includes_language(isolated_intakes_dir, completed_session):
+    completed_session.language = Language.ES
+    intake = storage.save_intake(completed_session)
+    assert intake["language"] == "es"
+
+
+def test_save_intake_language_defaults_to_en(isolated_intakes_dir, completed_session):
+    intake = storage.save_intake(completed_session)
+    assert intake["language"] == "en"
 
 
 def test_list_intakes_orders_by_irn_descending(isolated_intakes_dir):

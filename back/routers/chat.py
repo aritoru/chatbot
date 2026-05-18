@@ -31,6 +31,7 @@ async def send_message(session_id: str, body: SendMessageRequest):
     if session.status == InterviewStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Interview already completed")
 
+    prev_language = session.language.value
     agent_text, intake_confirmed = await process_message(session, body.message)
 
     intake = None
@@ -38,11 +39,13 @@ async def send_message(session_id: str, body: SendMessageRequest):
         intake = save_intake(session)
         del _sessions[session_id]
 
-    return {
+    response: dict = {
         "message": agent_text,
         "status": InterviewStatus.COMPLETED if intake_confirmed else session.status,
         "intake": intake,
+        "language": session.language.value,
     }
+    return response
 
 
 @router.delete("/{session_id}")

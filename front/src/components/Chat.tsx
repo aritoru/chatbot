@@ -4,6 +4,13 @@ import { createSession, sendMessage, closeSession } from '../services/api';
 
 const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
+const LOCALE_MAP: Record<string, string> = {
+  en: 'en-GB',
+  es: 'es-ES',
+  fr: 'fr-FR',
+  it: 'it-IT',
+};
+
 export default function Chat() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -12,6 +19,7 @@ export default function Chat() {
   const [intake, setIntake] = useState<Intake | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
+  const [language, setLanguage] = useState('en');
   const bottomRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
@@ -29,13 +37,14 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Select preferred TTS voice on mount; re-select if voices load asynchronously (Chrome)
+  // Select preferred TTS voice on mount and when language changes; re-select if voices load asynchronously (Chrome)
   useEffect(() => {
     if (!ttsSupported) return;
-    pickVoice();
-    window.speechSynthesis.addEventListener('voiceschanged', pickVoice);
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', pickVoice);
-  }, []);
+    pickVoice(language);
+    const handler = () => pickVoice(language);
+    window.speechSynthesis.addEventListener('voiceschanged', handler);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', handler);
+  }, [language]);
 
   // Narrate each new Agent message.
   // setTimeout(0) defers speak() past React 18 StrictMode's synchronous
@@ -61,13 +70,15 @@ export default function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  function pickVoice() {
+  function pickVoice(lang = language) {
     if (!ttsSupported) return;
     const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(
+    const locale = LOCALE_MAP[lang] ?? 'en-GB';
+    const localeMatch = voices.find((v) => v.lang.startsWith(locale.split('-')[0]));
+    const englishFallback = voices.find(
       (v) => /Daniel|George|Arthur/i.test(v.name) || v.lang.startsWith('en-GB'),
     );
-    voiceRef.current = preferred ?? null;
+    voiceRef.current = localeMatch ?? englishFallback ?? null;
   }
 
   function handleMuteToggle() {
@@ -103,6 +114,7 @@ export default function Chat() {
     try {
       const res = await sendMessage(sessionId, text);
       setMessages((prev) => [...prev, { role: 'agent', content: res.message }]);
+      if (res.language && res.language !== language) setLanguage(res.language);
       if (res.intake) {
         setIntake(res.intake);
         setSessionId(null);
