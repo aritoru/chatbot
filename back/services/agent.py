@@ -150,6 +150,7 @@ async def process_message(session: Session, user_message: str) -> tuple[str, boo
         })
 
         tool_results = []
+        should_stop = False
         for block in response.content:
             if block.type == "text":
                 agent_text = block.text
@@ -165,6 +166,7 @@ async def process_message(session: Session, user_message: str) -> tuple[str, boo
                     })
                 elif block.name == "confirm_intake":
                     intake_confirmed = True
+                    should_stop = True
                     session.status = InterviewStatus.COMPLETED
                     tool_results.append({
                         "type": "tool_result",
@@ -174,7 +176,7 @@ async def process_message(session: Session, user_message: str) -> tuple[str, boo
 
         if tool_results:
             session.claude_messages.append({"role": "user", "content": tool_results})
-        else:
+        if not tool_results or should_stop:
             break
 
     if agent_text:
