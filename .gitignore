@@ -33,3 +33,4 @@ back/data/
 # Claude Code / plugin local state
 .claude/settings.local.json
 .remember/
+.playwright-mcp/
