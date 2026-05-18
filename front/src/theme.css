@@ -232,6 +232,31 @@ h1, h2, h3 {
   cursor: not-allowed;
 }
 
+/* ─── Mute Toggle ───────────────────────────────────────────────────────────── */
+
+.btn-mute {
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: var(--color-stone);
+  color: var(--color-gold);
+  border: 1px solid var(--color-gold);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: filter 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-mute:hover {
+  filter: brightness(1.45);
+}
+
+.btn-mute.muted {
+  background: var(--color-parchment-dark);
+  color: var(--color-ink);
+  border-color: rgba(26, 18, 8, 0.3);
+  opacity: 0.7;
+}
+
 /* ─── Confirmation Scroll ───────────────────────────────────────────────────── */
 
 .page-container {

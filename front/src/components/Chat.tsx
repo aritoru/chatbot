@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, FormEvent } from 'react';
 import { ChatMessage, Intake } from '../types';
 import { createSession, sendMessage, closeSession } from '../services/api';
 
+const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
 export default function Chat() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -9,8 +11,11 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [intake, setIntake] = useState<Intake | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
+  // Start session on mount; close on unmount
   useEffect(() => {
     startSession();
     return () => {
@@ -19,9 +24,57 @@ export default function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Scroll to bottom on new messages or loading state
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Select preferred TTS voice on mount; re-select if voices load asynchronously (Chrome)
+  useEffect(() => {
+    if (!ttsSupported) return;
+    pickVoice();
+    window.speechSynthesis.addEventListener('voiceschanged', pickVoice);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', pickVoice);
+  }, []);
+
+  // Narrate each new Agent message.
+  // setTimeout(0) defers speak() past React 18 StrictMode's synchronous
+  // cleanup-then-remount cycle, which otherwise cancels speech immediately.
+  useEffect(() => {
+    if (!ttsSupported || muted || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role !== 'agent') return;
+
+    const id = setTimeout(() => {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(last.content);
+      utterance.rate = 0.88;
+      utterance.pitch = 0.9;
+      if (voiceRef.current) utterance.voice = voiceRef.current;
+      window.speechSynthesis.speak(utterance);
+    }, 0);
+
+    return () => {
+      clearTimeout(id);
+      window.speechSynthesis.cancel();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  function pickVoice() {
+    if (!ttsSupported) return;
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(
+      (v) => /Daniel|George|Arthur/i.test(v.name) || v.lang.startsWith('en-GB'),
+    );
+    voiceRef.current = preferred ?? null;
+  }
+
+  function handleMuteToggle() {
+    const nextMuted = !muted;
+    if (nextMuted && ttsSupported) window.speechSynthesis.cancel();
+    setMuted(nextMuted);
+  }
 
   async function startSession() {
     setLoading(true);
@@ -62,6 +115,7 @@ export default function Chat() {
   }
 
   function handleRestart() {
+    if (ttsSupported) window.speechSynthesis.cancel();
     setIntake(null);
     setMessages([]);
     startSession();
@@ -115,6 +169,16 @@ export default function Chat() {
         <button className="btn-send" type="submit" disabled={loading || !sessionId}>
           Speak ᛦ
         </button>
+        {ttsSupported && (
+          <button
+            className={`btn-mute${muted ? ' muted' : ''}`}
+            type="button"
+            onClick={handleMuteToggle}
+            title={muted ? 'Unmute Sage' : 'Mute Sage'}
+          >
+            {muted ? '🔇' : '🔊'}
+          </button>
+        )}
       </form>
     </div>
   );
