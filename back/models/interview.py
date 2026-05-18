@@ -18,6 +18,19 @@ class UrgencyLevel(str, Enum):
     HIGH = "High"
 
 
+class FrustrationSignal(str, Enum):
+    NONE = "None"
+    MILD = "Mild"
+    HIGH = "High"
+
+
+class Language(str, Enum):
+    EN = "en"
+    ES = "es"
+    FR = "fr"
+    IT = "it"
+
+
 class InterviewStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     AWAITING_CONFIRMATION = "awaiting_confirmation"
@@ -49,5 +62,7 @@ class Session:
         self.session_id = session_id
         self.fields = InterviewFields()
         self.status = InterviewStatus.IN_PROGRESS
+        self.frustration_signal = FrustrationSignal.NONE
+        self.language = Language.EN
         self.transcript: list[TranscriptMessage] = []
         self.claude_messages: list[dict] = []

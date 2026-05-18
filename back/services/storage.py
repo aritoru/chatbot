@@ -23,6 +23,8 @@ def save_intake(session) -> dict:
         "problem_category": fields.problem_category,
         "problem_description": fields.problem_description,
         "urgency_level": fields.urgency_level.value,
+        "frustration_signal": session.frustration_signal.value,
+        "language": session.language.value,
         "summary": (
             f"{fields.urgency_level.value} urgency {fields.game_system.value} issue "
             f"({fields.problem_category}): {fields.problem_description}"

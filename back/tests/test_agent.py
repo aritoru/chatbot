@@ -3,8 +3,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from models.interview import (
+    FrustrationSignal,
     GameSystem,
     InterviewStatus,
+    Language,
     Session,
     UrgencyLevel,
 )
@@ -119,3 +121,171 @@ async def test_confirm_intake_returns_confirmed_and_sets_status_completed():
     assert confirmed is True
     assert reply == "Your intake has been filed!"
     assert session.status == InterviewStatus.COMPLETED
+
+
+# ── Frustration signal dispatch ────────────────────────────────────────────────
+
+async def test_extract_frustration_signal_mild_sets_session_field():
+    session = _new_session()
+    responses = [
+        _response(_tool_block("extract_field", "t1", {"field_name": "frustration_signal", "field_value": "Mild"})),
+        _response(_text_block("I understand — let me help.")),
+    ]
+
+    with patch.object(agent._client.messages, "create", side_effect=responses):
+        await agent.process_message(session, "ugh, I already said it's 5e")
+
+    assert session.frustration_signal == FrustrationSignal.MILD
+
+
+async def test_extract_frustration_signal_high_sets_session_field():
+    session = _new_session()
+    responses = [
+        _response(_tool_block("extract_field", "t1", {"field_name": "frustration_signal", "field_value": "High"})),
+        _response(_text_block("I hear you — let's get this sorted quickly.")),
+    ]
+
+    with patch.object(agent._client.messages, "create", side_effect=responses):
+        await agent.process_message(session, "THIS IS TAKING FOREVER")
+
+    assert session.frustration_signal == FrustrationSignal.HIGH
+
+
+async def test_extract_frustration_signal_invalid_value_is_ignored():
+    session = _new_session()
+    responses = [
+        _response(_tool_block("extract_field", "t1", {"field_name": "frustration_signal", "field_value": "Furious"})),
+        _response(_text_block("Got it.")),
+    ]
+
+    with patch.object(agent._client.messages, "create", side_effect=responses):
+        await agent.process_message(session, "whatever")
+
+    assert session.frustration_signal == FrustrationSignal.NONE
+
+
+# ── Frustration directive in system prompt ─────────────────────────────────────
+
+def test_system_prompt_contains_no_frustration_directive_when_none():
+    session = _new_session()
+    prompt = agent._build_system_prompt(session)
+    # The rules section always references "Frustration Signal" for the extract_field instruction;
+    # what must be absent is the level-specific directive block.
+    assert "Frustration Signal: Mild" not in prompt
+    assert "Frustration Signal: High" not in prompt
+
+
+def test_system_prompt_contains_mild_directive():
+    session = _new_session()
+    session.frustration_signal = FrustrationSignal.MILD
+    prompt = agent._build_system_prompt(session)
+    assert "Frustration Signal: Mild" in prompt
+    assert "empathetic" in prompt
+
+
+def test_system_prompt_contains_high_directive():
+    session = _new_session()
+    session.frustration_signal = FrustrationSignal.HIGH
+    prompt = agent._build_system_prompt(session)
+    assert "Frustration Signal: High" in prompt
+    assert "Skip any optional clarifying questions" in prompt
+
+
+def test_system_prompt_high_frustration_biases_urgency():
+    session = _new_session()
+    session.frustration_signal = FrustrationSignal.HIGH
+    prompt = agent._build_system_prompt(session)
+    assert "default to inferring `High` urgency" in prompt
+
+
+# ── Language dispatch ─────────────────────────────────────────────────────────
+
+async def test_extract_language_spanish_sets_session_field():
+    session = _new_session()
+    responses = [
+        _response(_tool_block("extract_field", "t1", {"field_name": "language", "field_value": "es"})),
+        _response(_text_block("¡Hola! ¿En qué puedo ayudarte?")),
+    ]
+
+    with patch.object(agent._client.messages, "create", side_effect=responses):
+        await agent.process_message(session, "Hola, tengo una pregunta")
+
+    assert session.language == Language.ES
+
+
+async def test_extract_language_invalid_code_is_ignored():
+    session = _new_session()
+    responses = [
+        _response(_tool_block("extract_field", "t1", {"field_name": "language", "field_value": "klingon"})),
+        _response(_text_block("Hello!")),
+    ]
+
+    with patch.object(agent._client.messages, "create", side_effect=responses):
+        await agent.process_message(session, "hi")
+
+    assert session.language == Language.EN
+
+
+async def test_language_locked_once_non_english_detected():
+    session = _new_session()
+    session.language = Language.ES
+    responses = [
+        _response(_tool_block("extract_field", "t1", {"field_name": "language", "field_value": "fr"})),
+        _response(_text_block("Hola.")),
+    ]
+
+    with patch.object(agent._client.messages, "create", side_effect=responses):
+        await agent.process_message(session, "whatever")
+
+    assert session.language == Language.ES
+
+
+# ── Language directive in system prompt ───────────────────────────────────────
+
+def test_system_prompt_contains_no_language_directive_for_english():
+    session = _new_session()
+    prompt = agent._build_system_prompt(session)
+    assert "Respond in" not in prompt
+    assert "## Language" not in prompt
+
+
+def test_system_prompt_contains_spanish_directive():
+    session = _new_session()
+    session.language = Language.ES
+    prompt = agent._build_system_prompt(session)
+    assert "Spanish" in prompt
+    assert "extract_field" in prompt
+
+
+def test_system_prompt_contains_french_directive():
+    session = _new_session()
+    session.language = Language.FR
+    prompt = agent._build_system_prompt(session)
+    assert "French" in prompt
+
+
+def test_system_prompt_contains_italian_directive():
+    session = _new_session()
+    session.language = Language.IT
+    prompt = agent._build_system_prompt(session)
+    assert "Italian" in prompt
+
+
+# ── frustration_signal absent from HTTP message response ──────────────────────
+
+async def test_process_message_result_does_not_expose_frustration_signal():
+    """process_message returns (agent_text, confirmed) — frustration_signal is not in the tuple."""
+    session = _new_session()
+    responses = [
+        _response(_tool_block("extract_field", "t1", {"field_name": "frustration_signal", "field_value": "High"})),
+        _response(_text_block("Let me help you quickly.")),
+    ]
+
+    with patch.object(agent._client.messages, "create", side_effect=responses):
+        result = await agent.process_message(session, "JUST ANSWER ME")
+
+    # result is a 2-tuple; frustration_signal must not leak into it
+    assert len(result) == 2
+    agent_text, confirmed = result
+    assert "frustration_signal" not in agent_text
+    assert isinstance(confirmed, bool)
